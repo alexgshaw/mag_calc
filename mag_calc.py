@@ -81,7 +81,7 @@ class MagCalc:
         if return_vector is True:
             return Btot
         else:
-            return sum(Btot)
+            return np.linalg.norm(Btot)
 
     def calculate_fields(self, locations=None, return_vector=True):
         """ Calculates the magnetic field at the specified locations.
