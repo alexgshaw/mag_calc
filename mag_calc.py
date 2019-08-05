@@ -50,7 +50,7 @@ class MagCalc:
         """
         self.locations = locations
 
-    def calculate_field(self, location, return_vector=True):
+    def calculate_field(self, location, return_vector=True, mask_radius=None):
         """ Calculates the magnetic field at the specified location.
 
         Parameters:
@@ -58,6 +58,13 @@ class MagCalc:
                 where to calculate the magnetic field.
             return_vector (boolean): Optional, default is True. See below for
                 details.
+            mask_radius (int or float): Optional, default is None. If
+                mask_radius is None, all atoms and spins will be taken into
+                account for the calculation. If mask_radius is set to a number,
+                only atoms and spins within a sphere of radius mask_radius
+                centered about the location parameter will be used for
+                calculations. (To speed up calculations, 8 is
+                recommended.)
 
         Returns:
             (float or numpy array): The magnetic field at the given location. If
@@ -65,10 +72,16 @@ class MagCalc:
                 return_vector is True, it is a 1D numpy array with 3 values.
 
         """
+        if mask_radius is not None:
+            mask = (np.apply_along_axis(np.linalg.norm, 1, location - self.atoms) <= mask_radius)
+            atoms = self.atoms[mask]
+            spins = self.spins[mask]
+        else:
+            atoms = self.atoms
+            spins = self.spins
 
-
-        r = (location - self.atoms) * 1e-10
-        m = 1.0 * self.spins
+        r = (location - atoms) * 1e-10
+        m = 1.0 * spins
 
         m_dot_r = np.sum(r*m, axis=1).reshape(r.shape[0])[..., np.newaxis]
         r_mag = np.sqrt((r**2).sum(-1))[..., np.newaxis]
@@ -83,17 +96,24 @@ class MagCalc:
         else:
             return np.linalg.norm(Btot)
 
-    def calculate_fields(self, locations=None, return_vector=True):
+    def calculate_fields(self, locations=None, return_vector=True, mask_radius=None):
         """ Calculates the magnetic field at the specified locations.
 
         Parameters:
-            location (numpy array): Optional. A 2-Dimensional numpy array
+            locations (numpy array): Optional. A 2-Dimensional numpy array
                 specifying at which locations to calculate the magnetic field.
                 Each row in the array should be a 1-Dimensional numpy array of
                 length 3. If no value is passed in then it will use
                 self.locations.
             return_vector (boolean): Optional, default is True. See below for
                 details.
+            mask_radius (int or float): Optional, default is None. If
+                mask_radius is None, all atoms and spins will be taken into
+                account for the calculation. If mask_radius is set to a number,
+                only atoms and spins within a sphere of radius mask_radius
+                centered about the each location in the locations parameter will
+                be used for calculations. (To speed up calculations, 8 is
+                recommended.)
 
         Returns:
             (list): A list of either floats or 1D numpy arrays for the magnetic
@@ -110,5 +130,5 @@ class MagCalc:
             print('Please specify locations first')
             return []
 
-        return [self.calculate_field(location, return_vector)
+        return [self.calculate_field(location, return_vector, mask_radius)
                                                  for location in self.locations]
