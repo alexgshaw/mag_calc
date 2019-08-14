@@ -1,4 +1,5 @@
 from __future__ import division
+from scipy.optimize import least_squares
 import numpy as np
 
 class MagCalc:
@@ -109,7 +110,7 @@ class MagCalc:
                 details.
             mask_radius (int or float): Optional, default is None. If
                 mask_radius is None, all atoms and spins will be taken into
-                account for the calculation. If mask_radius is set to a number,
+                account for the calculations. If mask_radius is set to a number,
                 only atoms and spins within a sphere of radius mask_radius
                 centered about the each location in the locations parameter will
                 be used for calculations. (To speed up calculations, 8 is
@@ -132,3 +133,32 @@ class MagCalc:
 
         return [self.calculate_field(location, return_vector, mask_radius)
                                                  for location in self.locations]
+
+    def find_field(self, field, mask_radius=None):
+        """ Finds the location of a magnetic field in the crystal structure
+        using least squares minimization.
+
+        Parameters:
+            field (float or int): The value of the magnetic field the function
+                searches for.
+            mask_radius (int or float): Optional, default is None. If
+                mask_radius is None, all atoms and spins will be taken into
+                account for the calculations. If mask_radius is set to a number,
+                only atoms and spins within a sphere of radius mask_radius
+                centered about the each location in the locations parameter will
+                be used for calculations. (To speed up calculations, 8 is
+                recommended.)
+
+        Returns:
+            (numpy array): A 1D array containing the x,y,z location in the
+                structure where the magnetic field is closest to the input
+                field.
+
+        """
+
+        f = lambda x, y, z: (self.calculate_field(location=x,
+                                        return_vector=False, mask_radius=y) - z)
+
+        minimum = least_squares(f, np.random.rand(3), args=(mask_radius, field))
+
+        return minimum.x

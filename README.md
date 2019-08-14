@@ -13,8 +13,10 @@ locations = np.reshape(np.arange(30), (10,3))
 
 calc = MagCalc(atoms=atoms, spins=spins, locations=locations)
 
-B = calc.calculate_field(location=np.arange(3), return_vector=True)
-B_list = calc.calculate_fields(return_vector=True)
+B = calc.calculate_field(location=np.arange(3), return_vector=True, mask_radius=None)
+B_list = calc.calculate_fields(return_vector=False, mask_radius=8)
+
+field_location = calc.find_field(field=0.1, mask_radius=None)
 ```
 
 ## Dependencies
@@ -23,6 +25,7 @@ The following python library is required:
 
 ```bash
 pip install numpy
+pip install scipy
 ```
 
 ## Support
