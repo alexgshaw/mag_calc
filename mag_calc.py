@@ -17,7 +17,13 @@ class MagCalc:
             numpy array with 3 values designating an x,y,z location.
     """
 
-    def __init__(self, atoms, spins, locations = None):
+    def __init__(self,
+                 atoms,
+                 spins,
+                 locations=None,
+                 g_factor=1,
+                 spin=1/2,
+                 magneton='mu_B'):
         """Initializes the spins and atomic positions of a crystal structure.
         Optionally intializes the locations for where to calculate the field.
 
@@ -33,9 +39,24 @@ class MagCalc:
                 calculate the magnetic field. Should be a 2D numpy array with
                 each row as a 1D numpy array with 3 values designating an x,y,z
                 location.
+            g_factor (int or float): The dimensionless g-factor used to
+                calculate the spin magnetic moment.
+            spin (int or float): The spin quantum number.
+            magneton (string): Either 'mu_B' or 'mu_N' depending on whether the
+                magnetic moment depends on the nuclei or electrons.
         """
+
+        CONST_DICT = {'mu_B':9.274009994e-24, 'mu_N':5.050783699e-27}
+
+        try:
+            const = CONST_DICT[magneton]
+        except:
+            raise Exception("magneton must be equal to 'mu_B' or 'mu_N'")
+
+
+        eigenvalue = (spin * (spin+1))**(1/2)
         self.atoms = atoms
-        self.spins = spins
+        self.spins = spins * g_factor * eigenvalue * const
 
         if locations is not None:
             self.locations = locations
@@ -51,7 +72,10 @@ class MagCalc:
         """
         self.locations = locations
 
-    def calculate_field(self, location, return_vector=True, mask_radius=None):
+    def calculate_field(self,
+                        location,
+                        return_vector=True,
+                        mask_radius=None):
         """ Calculates the magnetic field at the specified location.
 
         Parameters:
@@ -97,7 +121,10 @@ class MagCalc:
         else:
             return np.linalg.norm(Btot)
 
-    def calculate_fields(self, locations=None, return_vector=True, mask_radius=None):
+    def calculate_fields(self,
+                         locations=None,
+                         return_vector=True,
+                         mask_radius=None):
         """ Calculates the magnetic field at the specified locations.
 
         Parameters:
@@ -128,19 +155,20 @@ class MagCalc:
         if locations is not None:
             self.locations = locations
         elif self.locations is None:
-            print('Please specify locations first')
-            return []
+            raise Exception('Please specify locations first')
 
         return [self.calculate_field(location, return_vector, mask_radius)
                                                  for location in self.locations]
 
-    def find_field(self, field, mask_radius=None):
+    def find_field(self,
+                   field,
+                   mask_radius=None):
         """ Finds the location of a magnetic field in the crystal structure
         using least squares minimization.
 
         Parameters:
             field (float or int): The value of the magnetic field the function
-                searches for.
+                searches for. (Tesla)
             mask_radius (int or float): Optional, default is None. If
                 mask_radius is None, all atoms and spins will be taken into
                 account for the calculations. If mask_radius is set to a number,

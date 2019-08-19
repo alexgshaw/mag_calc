@@ -11,7 +11,12 @@ atoms = np.genfromtxt('atoms_example.csv', delimiter=',')
 spins = np.genfromtxt('spins_example.csv', delimiter=',')
 locations = np.reshape(np.arange(30), (10,3))
 
-calc = MagCalc(atoms=atoms, spins=spins, locations=locations)
+calc = MagCalc(atoms=atoms,
+               spins=spins,
+               locations=locations,
+               g_factor=2,
+               spin=1/2,
+               magneton='mu_B')
 
 B = calc.calculate_field(location=np.arange(3), return_vector=True, mask_radius=None)
 B_list = calc.calculate_fields(return_vector=False, mask_radius=8)
