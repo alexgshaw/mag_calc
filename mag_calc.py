@@ -98,7 +98,9 @@ class MagCalc:
 
         """
         if mask_radius is not None:
-            mask = (np.apply_along_axis(np.linalg.norm, 1, location - self.atoms) <= mask_radius)
+            mask = np.apply_along_axis(np.linalg.norm,
+                                       1,
+                                       location - self.atoms) <= mask_radius
             atoms = self.atoms[mask]
             spins = self.spins[mask]
         else:
@@ -152,13 +154,15 @@ class MagCalc:
 
         """
 
-        if locations is not None:
-            self.locations = locations
-        elif self.locations is None:
-            raise Exception('Please specify locations first')
+        if locations is None:
+            if self.locations is None:
+                raise Exception('Please specify locations first')
+            else:
+                locations = self.locations
 
-        return [self.calculate_field(location, return_vector, mask_radius)
-                                                 for location in self.locations]
+        return [self.calculate_field(location,
+                                     return_vector,
+                                     mask_radius) for location in locations]
 
     def find_field(self,
                    field,
@@ -185,8 +189,32 @@ class MagCalc:
         """
 
         f = lambda x, y, z: (self.calculate_field(location=x,
-                                        return_vector=False, mask_radius=y) - z)
+                                                  return_vector=False,
+                                                  mask_radius=y) - z)
 
         minimum = least_squares(f, np.random.rand(3), args=(mask_radius, field))
 
         return minimum.x
+
+    def make_grid(side_length,
+                  resolution,
+                  center_point,
+                  return_vector=False,
+                  mask_radius=None):
+
+        x = np.linspace(center_point[0] - side_length/2,
+                        center_point[0] + side_length/2,
+                        resolution*side_length)
+        y = np.linspace(center_point[1] - side_length/2,
+                        center_point[1] + side_length/2,
+                        resolution*side_length)
+
+        X,Y = np.meshgrid(x,y)
+
+        locations = [[i,j,center_point[2]] for i,j in np.nditer([X,Y])]
+
+        fields = self.calculate_fields(locations=np.array(locations),
+                                       return_vector=return_vector,
+                                       mask_radius=mask_radius)
+
+        return np.reshape(np.array(fields), (len(x),len(y)))
