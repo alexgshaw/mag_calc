@@ -6,15 +6,15 @@ class MagCalc:
     """Object to calculate magnetic fields in an atomic structure.
 
     Attributes:
-        atoms (numpy array): The positions of the atoms in the crystal
+        atoms (ndarray): The positions of the atoms in the crystal structure.
+            Should be a 2D numpy array with each row as a 1D numpy array with 3
+            values designating an x,y,z location.
+        spins (ndarray): The magnetic dipole moments of the atoms in the crystal
             structure. Should be a 2D numpy array with each row as a 1D numpy
-            array with 3 values designating an x,y,z location.
-        spins (numpy array): The magnetic dipole moments of the atoms in the
-            crystal structure. Should be a 2D numpy array with each row as a 1D
-            numpy array with 3 values designating an i,j,k spin direction.
-        locations (numpy array): The locations of where to calculate the
-            magnetic field. Should be a 2D numpy array with each row as a 1D
-            numpy array with 3 values designating an x,y,z location.
+            array with 3 values designating an i,j,k spin direction.
+        locations (ndarray): The locations of where to calculate the magnetic
+            field. Should be a 2D numpy array with each row as a 1D numpy array
+            with 3 values designating an x,y,z location.
     """
 
     def __init__(self,
@@ -28,17 +28,16 @@ class MagCalc:
         Optionally intializes the locations for where to calculate the field.
 
         Parameters:
-            atoms (numpy array): The positions of the atoms in the crystal
+            atoms (ndarray): The positions of the atoms in the crystal
                 structure. Should be a 2D numpy array with each row as a 1D
                 numpy array with 3 values designating an x,y,z location.
-            spins (numpy array): The magnetic dipole moments of the atoms in the
+            spins (ndarray): The magnetic dipole moments of the atoms in the
                 crystal structure. Should be a 2D numpy array with each row as a
                 1D numpy array with 3 values designating an i,j,k spin
                 direction.
-            locations (numpy array): Optional. The locations of where to
-                calculate the magnetic field. Should be a 2D numpy array with
-                each row as a 1D numpy array with 3 values designating an x,y,z
-                location.
+            locations (ndarray): Optional. The locations of where to calculate
+                the magnetic field. Should be a 2D numpy array with each row as
+                a 1D numpy array with 3 values designating an x,y,z location.
             g_factor (int or float): The dimensionless g-factor used to
                 calculate the spin magnetic moment.
             spin (int or float): The spin quantum number.
@@ -61,17 +60,6 @@ class MagCalc:
         if locations is not None:
             self.locations = locations
 
-    def set_locations(self, locations):
-        """ Sets the locations for where to calculate the magnetic field.
-
-        Parameters:
-            location (numpy array): A 2D numpy array specifying at which
-                locations to calculate the magnetic field. Each row in the array
-                should be a 1D numpy array of length 3.
-
-        """
-        self.locations = locations
-
     def calculate_field(self,
                         location,
                         return_vector=True,
@@ -79,8 +67,8 @@ class MagCalc:
         """ Calculates the magnetic field at the specified location.
 
         Parameters:
-            location (numpy array): A 1D numpy array of length 3 specifying
-                where to calculate the magnetic field.
+            location (ndarray): A 1D numpy array of length 3 specifying where to
+                calculate the magnetic field.
             return_vector (boolean): Optional, default is True. See below for
                 details.
             mask_radius (int or float): Optional, default is None. If
@@ -92,7 +80,7 @@ class MagCalc:
                 recommended.)
 
         Returns:
-            (float or numpy array): The magnetic field at the given location. If
+            (float or ndarray): The magnetic field at the given location. If
                 return_vector is False it is a float of the magnitude. If
                 return_vector is True, it is a 1D numpy array with 3 values.
 
@@ -130,7 +118,7 @@ class MagCalc:
         """ Calculates the magnetic field at the specified locations.
 
         Parameters:
-            locations (numpy array): Optional. A 2-Dimensional numpy array
+            locations (ndarray): Optional. A 2-Dimensional numpy array
                 specifying at which locations to calculate the magnetic field.
                 Each row in the array should be a 1-Dimensional numpy array of
                 length 3. If no value is passed in then it will use
@@ -146,11 +134,11 @@ class MagCalc:
                 recommended.)
 
         Returns:
-            (list): A list of either floats or 1D numpy arrays for the magnetic
-                field at each of the given locations. If return_vector is False
-                it is a list of floats representing the magnitude. If
-                return_vector is True, it is a list of 1D numpy arrays with 3
-                values.
+            (ndarray): A numpy array of either floats or 1D numpy arrays for the
+                magnetic field at each of the given locations. If return_vector
+                is False it is a 1D array of floats representing the magnitude.
+                If return_vector is True, it is a 2D numpy array of 1D numpy
+                arrays with 3 values.
 
         """
 
@@ -160,9 +148,10 @@ class MagCalc:
             else:
                 locations = self.locations
 
-        return [self.calculate_field(location,
-                                     return_vector,
-                                     mask_radius) for location in locations]
+        return np.array([self.calculate_field(location,
+                                              return_vector,
+                                              mask_radius)
+                                              for location in locations])
 
     def find_field(self,
                    field,
@@ -182,7 +171,7 @@ class MagCalc:
                 recommended.)
 
         Returns:
-            (numpy array): A 1D array containing the x,y,z location in the
+            (ndarray): A 1D array containing the x,y,z location in the
                 structure where the magnetic field is closest to the input
                 field.
 
@@ -196,25 +185,84 @@ class MagCalc:
 
         return minimum.x
 
-    def make_grid(side_length,
+    def make_grid(self,
+                  side_length,
                   resolution,
                   center_point,
+                  norm_axis='z',
                   return_vector=False,
                   mask_radius=None):
+        """ Calculates the magnetic field over a grid specified by the input
+        parameters.
 
-        x = np.linspace(center_point[0] - side_length/2,
-                        center_point[0] + side_length/2,
+        Parameters:
+            side_length (int or float): The side length of the grid in
+                Angstroms.
+            resolution (int): The number of measurments to take per
+                Angstrom.
+            center_point (ndarray): A 1D numpy array with 3 values specifying an
+                x,y,z location that the grid will be centered on.
+            return_vector (boolean): Optional, default is True. See below for
+                details.
+            mask_radius (int or float): Optional, default is None. If
+                mask_radius is None, all atoms and spins will be taken into
+                account for the calculations. If mask_radius is set to a number,
+                only atoms and spins within a sphere of radius mask_radius
+                centered about the each location in the locations parameter will
+                be used for calculations. (To speed up calculations, 8 is
+                recommended.)
+
+        Returns:
+            (ndarray): A numpy array containing the magnetic field at each point
+                in the grid. The array will have side_length*resolution columns
+                and rows. If return_vector is False, the magnetic fields at each
+                location in the array will be magnitudes. If return_vector is
+                True, the magnetic fields will be 1D numpy arrays with 3 values.
+
+        """
+        axis_dict = {k:v for v,k in enumerate(['x','y','z'])}
+        try:
+            del axis_dict[norm_axis]
+        except:
+            raise Exception("norm_axis can only be set to: 'x', 'y', or 'z'")
+
+        a_index = min(axis_dict.values())
+        b_index = max(axis_dict.values())
+
+        a = np.linspace(center_point[a_index] - side_length/2,
+                        center_point[a_index] + side_length/2,
                         resolution*side_length)
-        y = np.linspace(center_point[1] - side_length/2,
-                        center_point[1] + side_length/2,
+        b = np.linspace(center_point[b_index] - side_length/2,
+                        center_point[b_index] + side_length/2,
                         resolution*side_length)
 
-        X,Y = np.meshgrid(x,y)
+        A,B = np.meshgrid(a,b)
 
-        locations = [[i,j,center_point[2]] for i,j in np.nditer([X,Y])]
+        locations = [self.make_location(n=n,
+                                        m=m,
+                                        norm_axis=norm_axis,
+                                        center_point=center_point)
+                                        for n,m in np.nditer([A,B])]
 
         fields = self.calculate_fields(locations=np.array(locations),
                                        return_vector=return_vector,
                                        mask_radius=mask_radius)
 
-        return np.reshape(np.array(fields), (len(x),len(y)))
+        return np.reshape(np.array(fields), (len(a),len(b)))
+
+    #Helper functions
+    def make_location(self,
+                      n,
+                      m,
+                      norm_axis,
+                      center_point):
+    """ Helper function to make locations for make_grid. """
+
+        if norm_axis == 'x':
+            location = [center_point[0], n, m]
+        elif norm_axis == 'y':
+            location = [n, center_point[1], m]
+        else:
+            location = [n, m, center_point[2]]
+
+        return location
