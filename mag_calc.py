@@ -256,7 +256,7 @@ class MagCalc:
                       m,
                       norm_axis,
                       center_point):
-    """ Helper function to make locations for make_grid. """
+        """ Helper function to make locations for make_grid. """
 
         if norm_axis == 'x':
             location = [center_point[0], n, m]
