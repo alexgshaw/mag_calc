@@ -26,7 +26,7 @@ field_location = calc.find_field(field=0.1, mask_radius=None)
 
 ## Dependencies
 
-The following python library is required:
+The following python libraries are required:
 
 ```bash
 pip install numpy
