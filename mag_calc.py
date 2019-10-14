@@ -63,7 +63,7 @@ class MagCalc:
     def calculate_field(self,
                         location,
                         return_vector=True,
-                        mask_radius=None):
+                        mask=None):
         """ Calculates the magnetic field at the specified location.
 
         Parameters:
@@ -71,13 +71,8 @@ class MagCalc:
                 calculate the magnetic field.
             return_vector (boolean): Optional, default is True. See below for
                 details.
-            mask_radius (int or float): Optional, default is None. If
-                mask_radius is None, all atoms and spins will be taken into
-                account for the calculation. If mask_radius is set to a number,
-                only atoms and spins within a sphere of radius mask_radius
-                centered about the location parameter will be used for
-                calculations. (To speed up calculations, 8 is
-                recommended.)
+            mask (ndarray): Optional, default is None. Should be an ndarray
+                that is the same size as self.atoms and self.spins.
 
         Returns:
             (float or ndarray): The magnetic field at the given location. If
@@ -85,10 +80,7 @@ class MagCalc:
                 return_vector is True, it is a 1D numpy array with 3 values.
 
         """
-        if mask_radius is not None:
-            mask = np.apply_along_axis(np.linalg.norm,
-                                       1,
-                                       location - self.atoms) <= mask_radius
+        if mask is not None:
             atoms = self.atoms[mask]
             spins = self.spins[mask]
         else:
@@ -128,10 +120,10 @@ class MagCalc:
             mask_radius (int or float): Optional, default is None. If
                 mask_radius is None, all atoms and spins will be taken into
                 account for the calculations. If mask_radius is set to a number,
-                only atoms and spins within a sphere of radius mask_radius
-                centered about the each location in the locations parameter will
-                be used for calculations. (To speed up calculations, 8 is
-                recommended.)
+                only atoms and spins within mask_radius units of all locations
+                will be taken into account. (Only recommended if
+                len(locations) > 30. In that case, recommeded value is 8 to
+                preserve accuracy.)
 
         Returns:
             (ndarray): A numpy array of either floats or 1D numpy arrays for the
@@ -144,31 +136,34 @@ class MagCalc:
 
         if locations is None:
             if self.locations is None:
-                raise Exception('Please specify locations first')
+                raise ValueError('Please specify locations first')
             else:
                 locations = self.locations
 
+        if locations.ndim == 1:
+            locations = np.expand_dims(locations, axis=0)
+
+        if mask_radius is not None:
+            mask = self.make_mask(locations, mask_radius)
+        else:
+            mask = None
+
         return np.array([self.calculate_field(location,
                                               return_vector,
-                                              mask_radius)
+                                              mask)
                                               for location in locations])
 
     def find_field(self,
                    field,
-                   mask_radius=None):
+                   mask=None):
         """ Finds the location of a magnetic field in the crystal structure
         using least squares minimization.
 
         Parameters:
             field (float or int): The value of the magnetic field the function
                 searches for. (Tesla)
-            mask_radius (int or float): Optional, default is None. If
-                mask_radius is None, all atoms and spins will be taken into
-                account for the calculations. If mask_radius is set to a number,
-                only atoms and spins within a sphere of radius mask_radius
-                centered about the each location in the locations parameter will
-                be used for calculations. (To speed up calculations, 8 is
-                recommended.)
+            mask (ndarray): Optional, default is None. Should be an ndarray
+                that is the same size as self.atoms and self.spins.
 
         Returns:
             (ndarray): A 1D array containing the x,y,z location in the
@@ -179,9 +174,9 @@ class MagCalc:
 
         f = lambda x, y, z: (self.calculate_field(location=x,
                                                   return_vector=False,
-                                                  mask_radius=y) - z)
+                                                  mask=y) - z)
 
-        minimum = least_squares(f, np.random.rand(3), args=(mask_radius, field))
+        minimum = least_squares(f, np.random.rand(3), args=(mask, field))
 
         return minimum.x
 
@@ -207,10 +202,9 @@ class MagCalc:
             mask_radius (int or float): Optional, default is None. If
                 mask_radius is None, all atoms and spins will be taken into
                 account for the calculations. If mask_radius is set to a number,
-                only atoms and spins within a sphere of radius mask_radius
-                centered about the each location in the locations parameter will
-                be used for calculations. (To speed up calculations, 8 is
-                recommended.)
+                only atoms and spins within mask_radius units of the grid will
+                be taken into account. (Only recommended if len(locations) > 30.
+                In that case, recommeded value is 8 to preserve accuracy.)
 
         Returns:
             (ndarray): A numpy array containing the magnetic field at each point
@@ -266,3 +260,20 @@ class MagCalc:
             location = [n, m, center_point[2]]
 
         return location
+
+    def make_mask(self,
+                  locations,
+                  mask_radius):
+        """ Helper function to make mask for calculate_locations. """
+
+        mean = locations.mean(axis=0)
+
+        max_diff = np.apply_along_axis(np.linalg.norm,
+                                       1,
+                                       locations - mean).max()
+        mask_radius += max_diff
+
+        mask = np.apply_along_axis(np.linalg.norm,
+                                   1,
+                                   mean - self.atoms) <= mask_radius
+        return mask

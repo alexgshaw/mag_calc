@@ -18,10 +18,10 @@ calc = MagCalc(atoms=atoms,
                spin=1/2,
                magneton='mu_B')
 
-B = calc.calculate_field(location=np.arange(3), return_vector=True, mask_radius=None)
+B = calc.calculate_field(location=np.arange(3), return_vector=True, mask=None)
 B_list = calc.calculate_fields(return_vector=False, mask_radius=8)
 
-field_location = calc.find_field(field=0.1, mask_radius=None)
+field_location = calc.find_field(field=0.1, mask=None)
 ```
 
 ## Dependencies
