@@ -9,7 +9,7 @@ from mag_calc import MagCalc
 
 atoms = np.genfromtxt('atoms_example.csv', delimiter=',')
 spins = np.genfromtxt('spins_example.csv', delimiter=',')
-locations = np.reshape(np.arange(30), (10,3))
+locations = np.random.rand(10,3)
 
 calc = MagCalc(atoms=atoms,
                spins=spins,
@@ -18,10 +18,15 @@ calc = MagCalc(atoms=atoms,
                spin=1/2,
                magneton='mu_B')
 
-B = calc.calculate_field(location=np.arange(3), return_vector=True, mask=None)
-B_list = calc.calculate_fields(return_vector=False, mask_radius=8)
+B = calc.calculate_field(location=np.random.rand(3),
+                         return_vector=True,
+                         mask=None)
+B_list = calc.calculate_fields(return_vector=False,
+                               mask_radius=8)
 
 field_location = calc.find_field(field=0.1, mask=None)
+print(calc.calculate_field(location=field_location, return_vector=False))
+>>> 0.1
 ```
 
 ## Dependencies

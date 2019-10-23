@@ -22,7 +22,7 @@ class MagCalc:
                  spins,
                  locations=None,
                  g_factor=1,
-                 spin=1/2,
+                 spin=0.5,
                  magneton='mu_B'):
         """Initializes the spins and atomic positions of a crystal structure.
         Optionally intializes the locations for where to calculate the field.
@@ -53,7 +53,7 @@ class MagCalc:
             raise Exception("magneton must be equal to 'mu_B' or 'mu_N'")
 
 
-        eigenvalue = (spin * (spin+1))**(1/2)
+        eigenvalue = (spin * (spin+1))**(0.5)
         self.atoms = atoms
         self.spins = spins * g_factor * eigenvalue * const
 
@@ -176,7 +176,7 @@ class MagCalc:
                                                   return_vector=False,
                                                   mask=y) - z)
 
-        minimum = least_squares(f, np.random.rand(3), args=(mask, field))
+        minimum = least_squares(f, np.random.rand(3)*10, args=(mask, field))
 
         return minimum.x
 
@@ -218,7 +218,11 @@ class MagCalc:
         try:
             del axis_dict[norm_axis]
         except:
-            raise Exception("norm_axis can only be set to: 'x', 'y', or 'z'")
+            raise ValueError("norm_axis can only be set to: 'x', 'y', or 'z'")
+
+        if resolution * side_length < 1:
+            raise ValueError('resolutions * side_length needs to be greater \
+            than or equal to 1')
 
         a_index = min(axis_dict.values())
         b_index = max(axis_dict.values())
@@ -266,14 +270,16 @@ class MagCalc:
                   mask_radius):
         """ Helper function to make mask for calculate_locations. """
 
-        mean = locations.mean(axis=0)
+        max_locations = locations.max(axis=0)
+        min_locations = locations.min(axis=0)
+        mid = (max_locations + min_locations)/2
 
         max_diff = np.apply_along_axis(np.linalg.norm,
                                        1,
-                                       locations - mean).max()
+                                       locations - mid).max()
         mask_radius += max_diff
 
         mask = np.apply_along_axis(np.linalg.norm,
                                    1,
-                                   mean - self.atoms) <= mask_radius
+                                   mid - self.atoms) <= mask_radius
         return mask
