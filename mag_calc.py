@@ -45,13 +45,16 @@ class MagCalc:
                 magnetic moment depends on the nuclei or electrons.
         """
 
-        CONST_DICT = {'mu_B':9.274009994e-24, 'mu_N':5.050783699e-27}
+        MAGNETONS = {'mu_B':9.274009994e-24, 'mu_N':5.050783699e-27}
 
         try:
-            const = CONST_DICT[magneton]
+            const = MAGNETONS[magneton]
         except:
-            raise Exception("magneton must be equal to 'mu_B' or 'mu_N'")
+            raise ValueError("magneton must be 'mu_B' or 'mu_N'")
 
+        self.g_factor = g_factor
+        self.spin = spin
+        self.magneton = magneton
 
         eigenvalue = (spin * (spin+1))**(0.5)
         self.atoms = atoms
@@ -59,6 +62,8 @@ class MagCalc:
 
         if locations is not None:
             self.locations = locations
+        else:
+            self.locations = None
 
     def calculate_field(self,
                         location,
@@ -88,16 +93,14 @@ class MagCalc:
             spins = self.spins
 
         r = (location - atoms) * 1e-10
-        m = 1.0 * spins
+        m = spins.copy()
 
-        m_dot_r = np.sum(r*m, axis=1).reshape(r.shape[0])[..., np.newaxis]
-        r_mag = np.sqrt((r**2).sum(-1))[..., np.newaxis]
-        r5 = r_mag**5
-        r3 = r_mag**3
-        Bvals = 3.0*m_dot_r / r5*r - m/r3
-        Btot = Bvals.sum(0) * 1e-7 #(mu_0 / (4 * pi))
+        m_dot_r = (r*m).sum(axis=1)
+        r_mag = np.linalg.norm(r, axis=1)
 
-        #We return the net magnetic field at the location specified.
+        Bvals = 3.0 * r.T * m_dot_r / r_mag**5 - m.T / r_mag**3
+        Btot = Bvals.sum(axis=1) * 1e-7 # (mu_0 / (4 * pi))
+
         if return_vector is True:
             return Btot
         else:
@@ -180,13 +183,13 @@ class MagCalc:
 
         return minimum.x
 
-    def make_grid(self,
-                  side_length,
-                  resolution,
-                  center_point,
-                  norm_axis='z',
-                  return_vector=False,
-                  mask_radius=None):
+    def make_plane(self,
+                   side_length,
+                   resolution,
+                   center_point,
+                   norm_vec=np.array([0,0,1]),
+                   return_vector=False,
+                   mask_radius=None):
         """ Calculates the magnetic field over a grid specified by the input
         parameters.
 
@@ -197,11 +200,14 @@ class MagCalc:
                 Angstrom.
             center_point (ndarray): A 1D numpy array with 3 values specifying an
                 x,y,z location that the grid will be centered on.
-            return_vector (boolean): Optional, default is True. See below for
+            norm_vec (ndarray): A 1D numpy array specifying the normal vector to
+                the plane we want to make the grid coordinates over. (i.e. the
+                vector [a b c] corresponds to the plane ax + by + cz = 0)
+            return_vector (boolean): Optional, default is False. See below for
                 details.
             mask_radius (int or float): Optional, default is None. If
                 mask_radius is None, all atoms and spins will be taken into
-                account for the calculations. If mask_radius is set to a number,
+                account for the calculations. If mask_radius is given a value,
                 only atoms and spins within mask_radius units of the grid will
                 be taken into account. (Only recommended if len(locations) > 30.
                 In that case, recommeded value is 8 to preserve accuracy.)
@@ -214,57 +220,46 @@ class MagCalc:
                 True, the magnetic fields will be 1D numpy arrays with 3 values.
 
         """
-        axis_dict = {k:v for v,k in enumerate(['x','y','z'])}
-        try:
-            del axis_dict[norm_axis]
-        except:
-            raise ValueError("norm_axis can only be set to: 'x', 'y', or 'z'")
+        v1 = np.array([1,0,0])
+        if np.allclose(v1, norm_vec):
+            v1 = np.array([0,1,0])
 
-        if resolution * side_length < 1:
-            raise ValueError('resolutions * side_length needs to be greater \
-            than or equal to 1')
+        # This code can be a bit confusing so I will do my best to document it.
+        # The orthogonal complement of norm_vec is our desired plane.
 
-        a_index = min(axis_dict.values())
-        b_index = max(axis_dict.values())
+        # First we make a matrix that reflects any vector on the orthogonal
+        # complement of norm_vec (look up Householder transforms for more info).
+        Hnorm = np.eye(3) - (np.outer(norm_vec, norm_vec.T) / norm_vec.T.dot(norm_vec))
 
-        a = np.linspace(center_point[a_index] - side_length/2,
-                        center_point[a_index] + side_length/2,
-                        resolution*side_length)
-        b = np.linspace(center_point[b_index] - side_length/2,
-                        center_point[b_index] + side_length/2,
-                        resolution*side_length)
+        # Next we reflect v1 onto the plane.
+        v1 = Hnorm.dot(v1)
+
+        # Now we make a vector that is orthogonal to both norm_vec and v2.
+        v2 = np.cross(norm_vec, v1)
+        # Now we have two vectors to form an orthogonal basis for our plane. (v1 & v2)
+
+        # We create and normalize Q, making it a transition matrix from our now
+        # orthonormal basis to the standard basis.
+        Q = np.column_stack((v1, v2, np.zeros_like(v1)))
+        Q[:,:2] /= np.linalg.norm(Q[:,:2], axis=0)
+
+        a = np.linspace(-side_length/2, side_length/2, resolution*side_length)
+        b = np.linspace(-side_length/2, side_length/2, resolution*side_length)
 
         A,B = np.meshgrid(a,b)
 
-        locations = [self.make_location(n=n,
-                                        m=m,
-                                        norm_axis=norm_axis,
-                                        center_point=center_point)
-                                        for n,m in np.nditer([A,B])]
+        locations = np.array([A.reshape(-1), B.reshape(-1), np.zeros(A.size)])
 
-        fields = self.calculate_fields(locations=np.array(locations),
+        # Multiply locations by Q to get the points into the standard basis.
+        locations = Q.dot(locations).T + center_point
+
+        fields = self.calculate_fields(locations=locations,
                                        return_vector=return_vector,
                                        mask_radius=mask_radius)
 
-        return np.reshape(np.array(fields), (len(a),len(b)))
+        return fields.reshape(a.size, b.size)
 
-    #Helper functions
-    def make_location(self,
-                      n,
-                      m,
-                      norm_axis,
-                      center_point):
-        """ Helper function to make locations for make_grid. """
-
-        if norm_axis == 'x':
-            location = [center_point[0], n, m]
-        elif norm_axis == 'y':
-            location = [n, center_point[1], m]
-        else:
-            location = [n, m, center_point[2]]
-
-        return location
-
+    # Helper functions and magic methods
     def make_mask(self,
                   locations,
                   mask_radius):
@@ -283,3 +278,20 @@ class MagCalc:
                                    1,
                                    mid - self.atoms) <= mask_radius
         return mask
+
+    def __str__(self):
+        """ String representation of MagCalc. """
+
+        output = 'atoms shape:\t{}\n'.format(self.atoms.shape)
+        output += 'spins shape:\t{}\n'.format(self.spins.shape)
+
+        if self.locations is None:
+            output += 'locations:\t{}\n'.format('None')
+        else:
+            output += 'locations shape:\t{}\n'.format(self.locations.shape)
+
+        output += 'g_factor:\t{}\n'.format(self.g_factor)
+        output += 'spin:\t\t{}\n'.format(self.spin)
+        output += 'magneton:\t{}'.format(self.magneton)
+
+        return output
