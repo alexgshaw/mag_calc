@@ -59,11 +59,7 @@ class MagCalc:
         eigenvalue = (spin * (spin+1))**(0.5)
         self.atoms = atoms
         self.spins = spins * g_factor * eigenvalue * const
-
-        if locations is not None:
-            self.locations = locations
-        else:
-            self.locations = None
+        self.locations = locations
 
     def calculate_field(self,
                         location,
@@ -101,10 +97,7 @@ class MagCalc:
         Bvals = 3.0 * r.T * m_dot_r / r_mag**5 - m.T / r_mag**3
         Btot = Bvals.sum(axis=1) * 1e-7 # (mu_0 / (4 * pi))
 
-        if return_vector is True:
-            return Btot
-        else:
-            return np.linalg.norm(Btot)
+        return Btot if return_vector is True else np.linalg.norm(Btot)
 
     def calculate_fields(self,
                          locations=None,
@@ -282,16 +275,16 @@ class MagCalc:
     def __str__(self):
         """ String representation of MagCalc. """
 
-        output = 'atoms shape:\t{}\n'.format(self.atoms.shape)
-        output += 'spins shape:\t{}\n'.format(self.spins.shape)
+        output = 'atoms shape:\t {}\n'.format(self.atoms.shape)
+        output += 'spins shape:\t {}\n'.format(self.spins.shape)
 
         if self.locations is None:
-            output += 'locations:\t{}\n'.format('None')
+            output += 'locations:\t {}\n'.format('None')
         else:
-            output += 'locations shape:\t{}\n'.format(self.locations.shape)
+            output += 'locations shape: {}\n'.format(self.locations.shape)
 
-        output += 'g_factor:\t{}\n'.format(self.g_factor)
-        output += 'spin:\t\t{}\n'.format(self.spin)
-        output += 'magneton:\t{}'.format(self.magneton)
+        output += 'g_factor:\t {}\n'.format(self.g_factor)
+        output += 'spin:\t\t {}\n'.format(self.spin)
+        output += 'magneton:\t {}'.format(self.magneton)
 
         return output
