@@ -149,8 +149,11 @@ class MagCalc:
                                               mask)
                                               for location in locations])
 
+
     def find_field(self,
                    field,
+                   center_point=np.zeros(3),
+                   search_range=10,
                    mask=None):
         """ Finds the location of a magnetic field in the crystal structure
         using least squares minimization.
@@ -167,12 +170,13 @@ class MagCalc:
                 field.
 
         """
+        initial = np.random.rand(3) * search_range + center_point - search_range / 2
 
         f = lambda x, y, z: (self.calculate_field(location=x,
                                                   return_vector=False,
                                                   mask=y) - z)
 
-        minimum = least_squares(f, np.random.rand(3)*10, args=(mask, field))
+        minimum = least_squares(f, initial, args=(mask, field))
 
         return minimum.x
 
@@ -214,7 +218,7 @@ class MagCalc:
 
         """
         v1 = np.array([1,0,0])
-        if np.allclose(v1, norm_vec):
+        if np.allclose(0, norm_vec[1:]):
             v1 = np.array([0,1,0])
 
         # This code can be a bit confusing so I will do my best to document it.
@@ -241,7 +245,7 @@ class MagCalc:
 
         A,B = np.meshgrid(a,b)
 
-        locations = np.array([A.reshape(-1), B.reshape(-1), np.zeros(A.size)])
+        locations = np.array([A.ravel(), B.ravel(), np.zeros(A.size)])
 
         # Multiply locations by Q to get the points into the standard basis.
         locations = Q.dot(locations).T + center_point
