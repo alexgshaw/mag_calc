@@ -191,7 +191,7 @@ class MagCalc:
         parameters.
 
         Parameters:
-            side_length (int or float): The side length of the grid in
+            side_length (int or float): The side length of the plane in
                 Angstroms.
             resolution (int): The number of measurments to take per
                 Angstrom.
