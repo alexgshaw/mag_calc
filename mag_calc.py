@@ -56,7 +56,7 @@ class MagCalc:
         self.spin = spin
         self.magneton = magneton
 
-        eigenvalue = (spin * (spin+1))**(0.5)
+        eigenvalue = spin #(spin * (spin+1))**(0.5)
         self.atoms = atoms
         self.spins = spins * g_factor * eigenvalue * const
         self.locations = locations
